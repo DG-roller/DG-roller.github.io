@@ -7,6 +7,78 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <header class="app-header">
+    <h1>GREEN BOX</h1>
+    <p class="subtitle">Delta Green player console</p>
+  </header>
+
+  <main class="layout" aria-label="Green Box controls and roll log">
+    <section class="panel controls" aria-label="Controls panel">
+      <section class="control-section" aria-labelledby="agent-codename-heading">
+        <h2 id="agent-codename-heading">Agent Codename</h2>
+        <label for="agent-codename">Agent Codename</label>
+        <input
+          id="agent-codename"
+          name="agentCodename"
+          type="text"
+          maxlength="24"
+          autocomplete="off"
+          spellcheck="false"
+          placeholder="Agent UNKNOWN"
+        />
+      </section>
+
+      <section class="control-section" aria-labelledby="manual-roll-heading">
+        <h2 id="manual-roll-heading">Manual Skill Roll</h2>
+        <label for="target-number">Target Number</label>
+        <div class="inline-controls">
+          <input id="target-number" name="targetNumber" type="number" min="1" max="100" value="50" />
+          <button type="button" disabled>Roll d100</button>
+        </div>
+      </section>
+
+      <section class="control-section" aria-labelledby="lethality-heading">
+        <h2 id="lethality-heading">Lethality</h2>
+        <label class="checkbox-label" for="lethality-toggle">
+          <input id="lethality-toggle" name="lethalityEnabled" type="checkbox" />
+          Enable Lethality
+        </label>
+        <label for="lethality-rating">Lethality Rating</label>
+        <div class="inline-controls">
+          <input id="lethality-rating" name="lethalityRating" type="number" min="1" max="100" value="10" />
+          <button type="button" disabled>Roll Lethality</button>
+        </div>
+      </section>
+
+      <section class="control-section" aria-labelledby="polyhedral-heading">
+        <h2 id="polyhedral-heading">Polyhedral Dice</h2>
+        <div class="dice-grid" role="group" aria-label="Polyhedral dice buttons">
+          <button type="button" disabled>d4</button>
+          <button type="button" disabled>d6</button>
+          <button type="button" disabled>d8</button>
+          <button type="button" disabled>d10</button>
+          <button type="button" disabled>d12</button>
+          <button type="button" disabled>d20</button>
+        </div>
+      </section>
+
+      <section class="control-section" aria-labelledby="character-import-heading">
+        <h2 id="character-import-heading">Character Import</h2>
+        <label for="character-file">Character JSON File</label>
+        <input id="character-file" name="characterFile" type="file" accept=".json,application/json" disabled />
+        <p class="section-note">Character parsing is not enabled in this first pass.</p>
+      </section>
+    </section>
+
+    <section class="panel log" aria-labelledby="roll-log-heading">
+      <h2 id="roll-log-heading">Roll Log</h2>
+      <p class="section-note">Local mode active. Firebase is not enabled.</p>
+      <div id="roll-log" class="log-view" role="log" aria-live="polite" aria-relevant="additions">
+        <p>&gt; System ready.</p>
+      </div>
+    </section>
+  </main>
+
   <script src="app.js"></script>
 </body>
 </html>
