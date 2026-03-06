@@ -33,7 +33,7 @@
         <label for="target-number">Target Number</label>
         <div class="inline-controls">
           <input id="target-number" name="targetNumber" type="number" min="1" max="100" value="50" />
-          <button type="button" disabled>Roll d100</button>
+          <button id="roll-d100-button" type="button">Roll d100</button>
         </div>
       </section>
 
@@ -46,19 +46,19 @@
         <label for="lethality-rating">Lethality Rating</label>
         <div class="inline-controls">
           <input id="lethality-rating" name="lethalityRating" type="number" min="1" max="100" value="10" />
-          <button type="button" disabled>Roll Lethality</button>
+          <button id="roll-lethality-button" type="button">Roll Lethality</button>
         </div>
       </section>
 
       <section class="control-section" aria-labelledby="polyhedral-heading">
         <h2 id="polyhedral-heading">Polyhedral Dice</h2>
         <div class="dice-grid" role="group" aria-label="Polyhedral dice buttons">
-          <button type="button" disabled>d4</button>
-          <button type="button" disabled>d6</button>
-          <button type="button" disabled>d8</button>
-          <button type="button" disabled>d10</button>
-          <button type="button" disabled>d12</button>
-          <button type="button" disabled>d20</button>
+          <button type="button" data-die-sides="4">d4</button>
+          <button type="button" data-die-sides="6">d6</button>
+          <button type="button" data-die-sides="8">d8</button>
+          <button type="button" data-die-sides="10">d10</button>
+          <button type="button" data-die-sides="12">d12</button>
+          <button type="button" data-die-sides="20">d20</button>
         </div>
       </section>
 
