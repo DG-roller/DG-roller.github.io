@@ -160,6 +160,19 @@ button:disabled {
   padding: 0.85rem;
 }
 
+.skill-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 0.45rem;
+  align-content: start;
+}
+
+.skill-grid button {
+  min-height: 2.4rem;
+  white-space: normal;
+  word-break: break-word;
+}
+
 @media (min-width: 880px) {
   .layout {
     grid-template-columns: minmax(360px, 460px) minmax(560px, 1fr);

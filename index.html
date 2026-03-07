@@ -81,8 +81,14 @@
     <section class="panel log" aria-labelledby="roll-log-heading">
       <h2 id="roll-log-heading">Roll Log</h2>
       <p class="section-note">Local mode active. Firebase is not enabled.</p>
-      <div id="roll-log" class="log-view" role="log" aria-live="polite" aria-relevant="additions">
-        <p>&gt; System ready.</p>
+      <div class="log-layout">
+        <div id="roll-log" class="log-view" role="log" aria-live="polite" aria-relevant="additions">
+          <p>&gt; System ready.</p>
+        </div>
+        <section class="skills-panel" aria-labelledby="imported-skills-heading">
+          <h3 id="imported-skills-heading">Imported Skills</h3>
+          <div id="imported-skills" class="skill-grid" role="group" aria-label="Imported character skills"></div>
+        </section>
       </div>
     </section>
   </main>
