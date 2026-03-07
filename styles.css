@@ -55,6 +55,11 @@ h3 {
   font-size: 0.85rem;
 }
 
+.error-note {
+  color: #e2a88f;
+  font-size: 0.85rem;
+}
+
 .layout {
   display: grid;
   grid-template-columns: 1fr;
