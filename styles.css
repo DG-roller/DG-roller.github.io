@@ -130,23 +130,11 @@ button:disabled {
   gap: 0.5rem;
 }
 
-.dice-grid {
+.dice-grid,
+.skill-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.5rem;
-}
-
-.skill-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-  gap: 0.45rem;
-  align-content: start;
-}
-
-.skill-grid button {
-  min-height: 2.4rem;
-  white-space: normal;
-  word-break: break-word;
 }
 
 .character-summary {

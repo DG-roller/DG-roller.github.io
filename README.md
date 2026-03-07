@@ -39,6 +39,3 @@ Static Delta Green dice roller and character helper built with HTML, CSS, and va
 ```
 
 - Malformed JSON is handled gracefully and does not crash the app.
-
-- Import starts immediately on file selection change (no separate upload button).
-- If parsing fails or JSON is unsupported, an inline error is shown in the Character Import section.
