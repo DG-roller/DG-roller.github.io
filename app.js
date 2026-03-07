@@ -12,7 +12,6 @@
   var characterStatus = document.getElementById('character-status');
   var characterSummary = document.getElementById('character-summary');
   var importedSkillsView = document.getElementById('imported-skills');
-  var characterImportError = document.getElementById('character-import-error');
   var storageKey = 'greenbox.agentCodename';
 
   if (!codenameInput || !targetInput || !rollD100Button || !lethalityToggle || !lethalityInput || !rollLethalityButton || !logView) {
@@ -24,7 +23,6 @@
 
   var loadedCharacter = loadCharacterFromLocalStorage();
   renderCharacterState(loadedCharacter, characterStatus, characterSummary, importedSkillsView, codenameInput, logView);
-  clearCharacterImportError(characterImportError);
 
   codenameInput.addEventListener('input', function onCodenameInput(event) {
     var safeName = sanitizeAgentName(event.target.value);
@@ -103,16 +101,16 @@
         return;
       }
 
-      clearCharacterImportError(characterImportError);
-
       importCharacterFile(selectedFile, function onImported(character) {
         loadedCharacter = character;
         saveCharacterToLocalStorage(character);
         renderCharacterState(character, characterStatus, characterSummary, importedSkillsView, codenameInput, logView);
-        clearCharacterImportError(characterImportError);
         appendSystemMessage(logView, 'Character file imported: ' + character.name + '.');
       }, function onImportError(errorMessage) {
-        renderCharacterImportError(characterImportError, errorMessage);
+        if (characterStatus) {
+          characterStatus.textContent = errorMessage;
+        }
+
         appendSystemMessage(logView, errorMessage);
       });
 
@@ -125,10 +123,6 @@
       loadedCharacter = null;
       clearStoredCharacter();
       renderCharacterState(null, characterStatus, characterSummary, importedSkillsView, codenameInput, logView);
-      clearCharacterImportError(characterImportError);
-      if (characterFileInput) {
-        characterFileInput.value = '';
-      }
       appendSystemMessage(logView, 'Imported character cleared.');
     });
   }
@@ -266,24 +260,6 @@ function saveCodename(key, value) {
   localStorage.setItem(key, sanitizeAgentName(value));
 }
 
-function renderCharacterImportError(errorNode, message) {
-  if (!errorNode) {
-    return;
-  }
-
-  errorNode.textContent = message;
-  errorNode.hidden = false;
-}
-
-function clearCharacterImportError(errorNode) {
-  if (!errorNode) {
-    return;
-  }
-
-  errorNode.textContent = '';
-  errorNode.hidden = true;
-}
-
 function importCharacterFile(file, onSuccess, onError) {
   if (!file || typeof FileReader === 'undefined') {
     onError('Character import is not available in this browser.');
@@ -333,9 +309,7 @@ function normalizeCharacterData(raw) {
   }
 
   var name = readFirstString(raw, ['name', 'characterName', 'agentName']);
-  var profession = readFirstString(raw, ['profession', 'occupation', 'job', 'archetype'])
-    || readFirstString(raw.demographics, ['profession', 'occupation', 'job'])
-    || readFirstString(raw.identity, ['profession', 'occupation', 'job']);
+  var profession = readFirstString(raw, ['profession', 'occupation', 'job', 'archetype']);
   var derivedStats = readDerivedStats(raw);
   var skills = dedupeSkills(extractSkills(raw));
 
@@ -353,22 +327,14 @@ function normalizeCharacterData(raw) {
 }
 
 function readDerivedStats(raw) {
+  var hp = readFirstNumber(raw, ['hp', 'HP', 'hitPoints']);
+  var wp = readFirstNumber(raw, ['wp', 'WP', 'willpower']);
+  var san = readFirstNumber(raw, ['san', 'SAN', 'sanity']);
+
   return {
-    hp: pickFirstNumber([
-      readFirstNumber(raw, ['hp', 'HP', 'hitPoints']),
-      readFirstNumber(raw.statistics, ['hp', 'HP', 'hitPoints']),
-      readFirstNumber(raw.derived, ['hp', 'HP', 'hitPoints'])
-    ]),
-    wp: pickFirstNumber([
-      readFirstNumber(raw, ['wp', 'WP', 'willpower']),
-      readFirstNumber(raw.statistics, ['wp', 'WP', 'willpower']),
-      readFirstNumber(raw.derived, ['wp', 'WP', 'willpower'])
-    ]),
-    san: pickFirstNumber([
-      readFirstNumber(raw, ['san', 'SAN', 'sanity']),
-      readFirstNumber(raw.statistics, ['san', 'SAN', 'sanity']),
-      readFirstNumber(raw.derived, ['san', 'SAN', 'sanity'])
-    ])
+    hp: hp,
+    wp: wp,
+    san: san
   };
 }
 
@@ -477,12 +443,6 @@ function normalizeSkill(label, typeName, value) {
   }
 
   var cleanType = sanitizeCharacterText(typeName, '');
-  var parsedTyped = extractTypedSkillParts(cleanLabel);
-
-  if (!cleanType && parsedTyped) {
-    cleanLabel = parsedTyped.baseLabel;
-    cleanType = parsedTyped.typeName;
-  }
 
   return {
     key: normalizeSkillKey(cleanLabel),
@@ -490,26 +450,6 @@ function normalizeSkill(label, typeName, value) {
     baseLabel: cleanLabel,
     typed: Boolean(cleanType),
     value: boundedValue
-  };
-}
-
-function extractTypedSkillParts(label) {
-  var match = label.match(/^(.+?)\s*\(([^)]+)\)$/);
-
-  if (!match) {
-    return null;
-  }
-
-  var baseLabel = sanitizeCharacterText(match[1], '');
-  var typeName = sanitizeCharacterText(match[2], '');
-
-  if (!baseLabel || !typeName) {
-    return null;
-  }
-
-  return {
-    baseLabel: baseLabel,
-    typeName: typeName
   };
 }
 
@@ -573,16 +513,6 @@ function dedupeSkills(skills) {
   });
 
   return deduped;
-}
-
-function pickFirstNumber(values) {
-  for (var i = 0; i < values.length; i += 1) {
-    if (values[i] !== null) {
-      return values[i];
-    }
-  }
-
-  return null;
 }
 
 function readFirstString(source, keys) {
