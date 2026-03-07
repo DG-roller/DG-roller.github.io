@@ -1,6 +1,6 @@
 # Green Box
 
-Static Delta Green dice roller and character helper built with HTML, CSS, and vanilla JavaScript.
+Delta Green dice roller and character helper built with HTML, CSS, and vanilla JavaScript.
 
 ## Features
 - Manual d100 skill checks with critical/fumble handling.
