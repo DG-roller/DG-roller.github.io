@@ -64,16 +64,16 @@ h3 {
 .layout {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 1rem;
-  padding: 1rem;
-  width: min(100%, 1680px);
+  gap: 0.85rem;
+  padding: 0.85rem;
+  width: min(100%, 1720px);
   margin: 0 auto;
 }
 
 .panel {
   background: var(--panel);
   border: 1px solid var(--border);
-  padding: 1rem;
+  padding: 0.85rem;
 }
 
 .controls {
@@ -147,17 +147,34 @@ button:disabled {
 
 .log {
   display: grid;
-  gap: 0.6rem;
+  gap: 0.55rem;
   min-width: 0;
+}
+
+.log-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.65rem;
+  align-items: start;
+}
+
+.skills-panel {
+  border: 1px solid var(--border);
+  background: #101612;
+  padding: 0.8rem;
+  display: grid;
+  gap: 0.45rem;
+  align-content: start;
+  min-height: 180px;
 }
 
 .log-view {
   border: 1px solid var(--border);
-  background: #0e130f;
+  background: #0d120e;
   min-height: 420px;
   max-height: 72vh;
   overflow-y: auto;
-  padding: 0.85rem;
+  padding: 0.8rem;
 }
 
 .skill-grid {
@@ -175,15 +192,20 @@ button:disabled {
 
 @media (min-width: 880px) {
   .layout {
-    grid-template-columns: minmax(360px, 460px) minmax(560px, 1fr);
+    grid-template-columns: minmax(360px, 430px) minmax(760px, 1fr);
     align-items: start;
   }
 
   .controls {
     position: sticky;
-    top: 0.75rem;
-    max-height: calc(100vh - 2rem);
+    top: 0.65rem;
+    max-height: calc(100vh - 1.5rem);
     overflow-y: auto;
+  }
+
+  .log-layout {
+    grid-template-columns: minmax(460px, 1fr) minmax(280px, 360px);
+    gap: 0.6rem;
   }
 
   .log-view {
