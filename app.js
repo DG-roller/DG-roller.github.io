@@ -7,6 +7,12 @@
   var rollLethalityButton = document.getElementById('roll-lethality-button');
   var polyButtons = document.querySelectorAll('[data-die-sides]');
   var logView = document.getElementById('roll-log');
+  var characterFileInput = document.getElementById('character-file');
+  var clearCharacterButton = document.getElementById('clear-character-button');
+  var characterStatus = document.getElementById('character-status');
+  var characterSummary = document.getElementById('character-summary');
+  var importedSkillsView = document.getElementById('imported-skills');
+  var characterImportError = document.getElementById('character-import-error');
   var storageKey = 'greenbox.agentCodename';
 
   if (!codenameInput || !targetInput || !rollD100Button || !lethalityToggle || !lethalityInput || !rollLethalityButton || !logView) {
@@ -15,6 +21,10 @@
 
   codenameInput.value = loadCodename(storageKey);
   updateLethalityState(lethalityToggle.checked, lethalityInput, rollLethalityButton);
+
+  var loadedCharacter = loadCharacterFromLocalStorage();
+  renderCharacterState(loadedCharacter, characterStatus, characterSummary, importedSkillsView, codenameInput, logView);
+  clearCharacterImportError(characterImportError);
 
   codenameInput.addEventListener('input', function onCodenameInput(event) {
     var safeName = sanitizeAgentName(event.target.value);
@@ -84,6 +94,44 @@
       appendLogLine(logView, agent + ' rolled d' + sides + ' = ' + roll);
     });
   });
+
+  if (characterFileInput) {
+    characterFileInput.addEventListener('change', function onCharacterFileChange(event) {
+      var selectedFile = event.target.files && event.target.files[0];
+
+      if (!selectedFile) {
+        return;
+      }
+
+      clearCharacterImportError(characterImportError);
+
+      importCharacterFile(selectedFile, function onImported(character) {
+        loadedCharacter = character;
+        saveCharacterToLocalStorage(character);
+        renderCharacterState(character, characterStatus, characterSummary, importedSkillsView, codenameInput, logView);
+        clearCharacterImportError(characterImportError);
+        appendSystemMessage(logView, 'Character file imported: ' + character.name + '.');
+      }, function onImportError(errorMessage) {
+        renderCharacterImportError(characterImportError, errorMessage);
+        appendSystemMessage(logView, errorMessage);
+      });
+
+      event.target.value = '';
+    });
+  }
+
+  if (clearCharacterButton) {
+    clearCharacterButton.addEventListener('click', function onClearCharacter() {
+      loadedCharacter = null;
+      clearStoredCharacter();
+      renderCharacterState(null, characterStatus, characterSummary, importedSkillsView, codenameInput, logView);
+      clearCharacterImportError(characterImportError);
+      if (characterFileInput) {
+        characterFileInput.value = '';
+      }
+      appendSystemMessage(logView, 'Imported character cleared.');
+    });
+  }
 })();
 
 function rollDie(sides) {
@@ -216,4 +264,458 @@ function loadCodename(key) {
 
 function saveCodename(key, value) {
   localStorage.setItem(key, sanitizeAgentName(value));
+}
+
+function renderCharacterImportError(errorNode, message) {
+  if (!errorNode) {
+    return;
+  }
+
+  errorNode.textContent = message;
+  errorNode.hidden = false;
+}
+
+function clearCharacterImportError(errorNode) {
+  if (!errorNode) {
+    return;
+  }
+
+  errorNode.textContent = '';
+  errorNode.hidden = true;
+}
+
+function importCharacterFile(file, onSuccess, onError) {
+  if (!file || typeof FileReader === 'undefined') {
+    onError('Character import is not available in this browser.');
+    return;
+  }
+
+  var reader = new FileReader();
+
+  reader.onload = function onReaderLoad(event) {
+    var rawText = event.target && event.target.result;
+    var parsedCharacter = parseCharacterFile(rawText);
+
+    if (!parsedCharacter) {
+      onError('Malformed character JSON. Please select a valid file.');
+      return;
+    }
+
+    onSuccess(parsedCharacter);
+  };
+
+  reader.onerror = function onReaderError() {
+    onError('Unable to read the selected file.');
+  };
+
+  reader.readAsText(file);
+}
+
+function parseCharacterFile(jsonText) {
+  if (typeof jsonText !== 'string') {
+    return null;
+  }
+
+  var raw;
+
+  try {
+    raw = JSON.parse(jsonText);
+  } catch (error) {
+    return null;
+  }
+
+  return normalizeCharacterData(raw);
+}
+
+function normalizeCharacterData(raw) {
+  if (!raw || typeof raw !== 'object') {
+    return null;
+  }
+
+  var name = readFirstString(raw, ['name', 'characterName', 'agentName']);
+  var profession = readFirstString(raw, ['profession', 'occupation', 'job', 'archetype'])
+    || readFirstString(raw.demographics, ['profession', 'occupation', 'job'])
+    || readFirstString(raw.identity, ['profession', 'occupation', 'job']);
+  var derivedStats = readDerivedStats(raw);
+  var skills = dedupeSkills(extractSkills(raw));
+
+  if (!name && skills.length === 0) {
+    return null;
+  }
+
+  return {
+    id: readFirstString(raw, ['id', 'characterId']) || null,
+    name: sanitizeCharacterText(name, 'Unnamed Character'),
+    profession: sanitizeCharacterText(profession, ''),
+    derived: derivedStats,
+    skills: skills
+  };
+}
+
+function readDerivedStats(raw) {
+  return {
+    hp: pickFirstNumber([
+      readFirstNumber(raw, ['hp', 'HP', 'hitPoints']),
+      readFirstNumber(raw.statistics, ['hp', 'HP', 'hitPoints']),
+      readFirstNumber(raw.derived, ['hp', 'HP', 'hitPoints'])
+    ]),
+    wp: pickFirstNumber([
+      readFirstNumber(raw, ['wp', 'WP', 'willpower']),
+      readFirstNumber(raw.statistics, ['wp', 'WP', 'willpower']),
+      readFirstNumber(raw.derived, ['wp', 'WP', 'willpower'])
+    ]),
+    san: pickFirstNumber([
+      readFirstNumber(raw, ['san', 'SAN', 'sanity']),
+      readFirstNumber(raw.statistics, ['san', 'SAN', 'sanity']),
+      readFirstNumber(raw.derived, ['san', 'SAN', 'sanity'])
+    ])
+  };
+}
+
+function extractSkills(raw) {
+  var skills = [];
+
+  collectSkillsFromArray(raw.skills, skills);
+  collectSkillsFromObject(raw.skills, skills);
+
+  if (raw.statistics && raw.statistics.skills) {
+    collectSkillsFromArray(raw.statistics.skills, skills);
+    collectSkillsFromObject(raw.statistics.skills, skills);
+  }
+
+  if (raw.attributes && raw.attributes.skills) {
+    collectSkillsFromArray(raw.attributes.skills, skills);
+    collectSkillsFromObject(raw.attributes.skills, skills);
+  }
+
+  return skills;
+}
+
+function collectSkillsFromArray(rawSkills, result) {
+  if (!Array.isArray(rawSkills)) {
+    return;
+  }
+
+  rawSkills.forEach(function eachSkill(item) {
+    if (!item || typeof item !== 'object') {
+      return;
+    }
+
+    var baseLabel = readFirstString(item, ['label', 'name', 'skill', 'key']);
+    var typeName = readFirstString(item, ['type', 'specialization', 'focus', 'subskill']);
+    var value = readFirstNumber(item, ['value', 'score', 'target', 'rating']);
+
+    if (value === null) {
+      return;
+    }
+
+    var normalized = normalizeSkill(baseLabel, typeName, value);
+
+    if (normalized) {
+      result.push(normalized);
+    }
+  });
+}
+
+function collectSkillsFromObject(rawSkills, result) {
+  if (!rawSkills || typeof rawSkills !== 'object' || Array.isArray(rawSkills)) {
+    return;
+  }
+
+  Object.keys(rawSkills).forEach(function eachKey(key) {
+    var value = rawSkills[key];
+
+    if (typeof value === 'number' || typeof value === 'string') {
+      var score = parseBoundedInt(value, 0, 100);
+      var simpleSkill = normalizeSkill(key, null, score);
+      if (simpleSkill) {
+        result.push(simpleSkill);
+      }
+      return;
+    }
+
+    if (!value || typeof value !== 'object') {
+      return;
+    }
+
+    var scoreFromObject = readFirstNumber(value, ['value', 'score', 'target', 'rating']);
+
+    if (scoreFromObject !== null) {
+      var typeName = readFirstString(value, ['type', 'specialization', 'focus', 'subskill']);
+      var objectSkill = normalizeSkill(key, typeName, scoreFromObject);
+      if (objectSkill) {
+        result.push(objectSkill);
+      }
+    }
+
+    Object.keys(value).forEach(function eachNested(nestedKey) {
+      var nestedValue = value[nestedKey];
+      var nestedScore = parseBoundedInt(nestedValue, 0, 100);
+
+      if (nestedScore === null) {
+        return;
+      }
+
+      var nestedSkill = normalizeSkill(key, nestedKey, nestedScore);
+      if (nestedSkill) {
+        result.push(nestedSkill);
+      }
+    });
+  });
+}
+
+function normalizeSkill(label, typeName, value) {
+  var boundedValue = parseBoundedInt(value, 0, 100);
+
+  if (boundedValue === null || !label) {
+    return null;
+  }
+
+  var cleanLabel = sanitizeCharacterText(label, '');
+  if (!cleanLabel) {
+    return null;
+  }
+
+  var cleanType = sanitizeCharacterText(typeName, '');
+  var parsedTyped = extractTypedSkillParts(cleanLabel);
+
+  if (!cleanType && parsedTyped) {
+    cleanLabel = parsedTyped.baseLabel;
+    cleanType = parsedTyped.typeName;
+  }
+
+  return {
+    key: normalizeSkillKey(cleanLabel),
+    label: normalizeSkillLabel(cleanLabel, cleanType),
+    baseLabel: cleanLabel,
+    typed: Boolean(cleanType),
+    value: boundedValue
+  };
+}
+
+function extractTypedSkillParts(label) {
+  var match = label.match(/^(.+?)\s*\(([^)]+)\)$/);
+
+  if (!match) {
+    return null;
+  }
+
+  var baseLabel = sanitizeCharacterText(match[1], '');
+  var typeName = sanitizeCharacterText(match[2], '');
+
+  if (!baseLabel || !typeName) {
+    return null;
+  }
+
+  return {
+    baseLabel: baseLabel,
+    typeName: typeName
+  };
+}
+
+function normalizeSkillLabel(key, typeName) {
+  if (!typeName) {
+    return key;
+  }
+
+  return key + ' (' + typeName + ')';
+}
+
+function normalizeSkillKey(label) {
+  return label.toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+function dedupeSkills(skills) {
+  var groups = {};
+
+  skills.forEach(function eachSkill(skill) {
+    if (!groups[skill.key]) {
+      groups[skill.key] = [];
+    }
+
+    groups[skill.key].push(skill);
+  });
+
+  var deduped = [];
+
+  Object.keys(groups).forEach(function eachGroup(key) {
+    var group = groups[key];
+    var typedSkills = group.filter(function onlyTyped(item) {
+      return item.typed;
+    });
+    var genericZero = group.some(function hasGenericZero(item) {
+      return !item.typed && item.value === 0;
+    });
+
+    if (typedSkills.length > 0 && genericZero) {
+      group = group.filter(function removeGenericZero(item) {
+        return item.typed || item.value > 0;
+      });
+    }
+
+    var seenLabels = {};
+    group.forEach(function keepHighest(skill) {
+      var labelKey = skill.label.toLowerCase();
+      var existing = seenLabels[labelKey];
+
+      if (!existing || skill.value > existing.value) {
+        seenLabels[labelKey] = skill;
+      }
+    });
+
+    Object.keys(seenLabels).forEach(function pushSkill(labelKey) {
+      deduped.push(seenLabels[labelKey]);
+    });
+  });
+
+  deduped.sort(function sortSkills(a, b) {
+    return a.label.localeCompare(b.label);
+  });
+
+  return deduped;
+}
+
+function pickFirstNumber(values) {
+  for (var i = 0; i < values.length; i += 1) {
+    if (values[i] !== null) {
+      return values[i];
+    }
+  }
+
+  return null;
+}
+
+function readFirstString(source, keys) {
+  if (!source || typeof source !== 'object') {
+    return '';
+  }
+
+  for (var i = 0; i < keys.length; i += 1) {
+    var value = source[keys[i]];
+    if (typeof value === 'string' && value.trim()) {
+      return value;
+    }
+  }
+
+  return '';
+}
+
+function readFirstNumber(source, keys) {
+  if (!source || typeof source !== 'object') {
+    return null;
+  }
+
+  for (var i = 0; i < keys.length; i += 1) {
+    var parsed = parseBoundedInt(source[keys[i]], 0, 100);
+    if (parsed !== null) {
+      return parsed;
+    }
+  }
+
+  return null;
+}
+
+function sanitizeCharacterText(value, fallback) {
+  if (typeof value !== 'string') {
+    return fallback;
+  }
+
+  var trimmed = value.trim().replace(/\s+/g, ' ');
+  if (!trimmed) {
+    return fallback;
+  }
+
+  return trimmed.slice(0, 60);
+}
+
+function saveCharacterToLocalStorage(character) {
+  localStorage.setItem('greenbox.character', JSON.stringify(character));
+}
+
+function loadCharacterFromLocalStorage() {
+  var raw = localStorage.getItem('greenbox.character');
+
+  if (!raw) {
+    return null;
+  }
+
+  return parseCharacterFile(raw);
+}
+
+function clearStoredCharacter() {
+  localStorage.removeItem('greenbox.character');
+}
+
+function renderCharacterState(character, statusNode, summaryNode, skillsNode, codenameInput, logView) {
+  if (!statusNode || !summaryNode || !skillsNode) {
+    return;
+  }
+
+  statusNode.textContent = character ? 'Loaded: ' + character.name : 'No character loaded.';
+  renderCharacterSummary(character, summaryNode);
+  renderSkillButtons(character, skillsNode, codenameInput, logView);
+}
+
+function renderCharacterSummary(character, node) {
+  while (node.firstChild) {
+    node.removeChild(node.firstChild);
+  }
+
+  if (!character) {
+    return;
+  }
+
+  var nameLine = document.createElement('p');
+  nameLine.textContent = 'Name: ' + character.name;
+  node.appendChild(nameLine);
+
+  if (character.profession) {
+    var professionLine = document.createElement('p');
+    professionLine.textContent = 'Profession: ' + character.profession;
+    node.appendChild(professionLine);
+  }
+
+  var statParts = [];
+  if (character.derived.hp !== null) {
+    statParts.push('HP ' + character.derived.hp);
+  }
+  if (character.derived.wp !== null) {
+    statParts.push('WP ' + character.derived.wp);
+  }
+  if (character.derived.san !== null) {
+    statParts.push('SAN ' + character.derived.san);
+  }
+
+  if (statParts.length > 0) {
+    var statLine = document.createElement('p');
+    statLine.textContent = 'Derived: ' + statParts.join(' | ');
+    node.appendChild(statLine);
+  }
+}
+
+function renderSkillButtons(character, skillsNode, codenameInput, logView) {
+  while (skillsNode.firstChild) {
+    skillsNode.removeChild(skillsNode.firstChild);
+  }
+
+  if (!character || character.skills.length === 0) {
+    var emptyLine = document.createElement('p');
+    emptyLine.className = 'section-note';
+    emptyLine.textContent = 'No imported skills available.';
+    skillsNode.appendChild(emptyLine);
+    return;
+  }
+
+  character.skills.forEach(function eachSkill(skill) {
+    var button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = skill.label + ' (' + skill.value + ')';
+    button.addEventListener('click', function onSkillRoll() {
+      var roll = rollD100();
+      var outcome = getSkillOutcome(roll, skill.value);
+      var actor = character.name || sanitizeAgentName(codenameInput.value);
+      appendLogLine(logView, actor + ' rolled ' + skill.label + ' ' + padD100(roll) + ' vs ' + skill.value + ' [' + outcome.toUpperCase() + ']');
+    });
+    skillsNode.appendChild(button);
+  });
 }
